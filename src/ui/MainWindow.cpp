@@ -25,16 +25,18 @@
 #include <QMenuBar>
 #include <QStatusBar>
 #include <QProcess>
+#include <QTime>
+#include <QScrollBar>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , m_scanner(new NetworkScanner(this))
     , m_clockTimer(new QTimer(this))
-    , m_isDarkTheme(true)
+    , m_currentTheme(ThemeRetroGreen)
 {
-    setWindowTitle("Network IP Scanner");
-    resize(1150, 720);
-    setMinimumSize(850, 500);
+    setWindowTitle("SYS.RECON // CYBERDECK NETWORK RADAR v2.4");
+    resize(1180, 750);
+    setMinimumSize(900, 560);
 
     // Initialize vendor lookup and arp reader
     MacVendorLookup::instance().init();
@@ -47,7 +49,7 @@ MainWindow::MainWindow(QWidget *parent)
     setupMenuBar();
     setupUi();
     populateInterfaces();
-    applyTheme(true);
+    applyTheme(ThemeRetroGreen);
 
     // Scanner signals
     connect(m_scanner, &NetworkScanner::scanStarted, this, &MainWindow::onScanStarted);
@@ -68,10 +70,13 @@ MainWindow::MainWindow(QWidget *parent)
 
     // Stats change updates
     connect(m_model, &HostTableModel::statsChanged, this, [this](int alive, int total) {
-        m_aliveBadge->setText(QString("● Online: %1").arg(alive));
-        m_offlineBadge->setText(QString("○ Offline: %1").arg(total - alive));
-        m_totalBadge->setText(QString("Total: %1").arg(total));
+        m_aliveBadge->setText(QString("[● ONLINE: %1]").arg(alive));
+        m_offlineBadge->setText(QString("[○ OFFLINE: %1]").arg(total - alive));
+        m_totalBadge->setText(QString("[TARGETS: %1]").arg(total));
     });
+
+    appendLog("SYSTEM INITIALIZED. Monospace cyberdeck interface ready.", "SYS");
+    appendLog(QString("IEEE OUI database loaded: %1 vendor definitions online.").arg("39,850+"), "INTEL");
 }
 
 MainWindow::~MainWindow()
@@ -84,29 +89,28 @@ void MainWindow::setupMenuBar()
     QMenuBar *menuBar = this->menuBar();
 
     // File Menu
-    QMenu *fileMenu = menuBar->addMenu("&File");
-    QAction *exportCsvAct = fileMenu->addAction("Export to CSV...", this, &MainWindow::onExportCsv);
+    QMenu *fileMenu = menuBar->addMenu("&[FILE]");
+    QAction *exportCsvAct = fileMenu->addAction("Dump Targets to CSV...", this, &MainWindow::onExportCsv);
     exportCsvAct->setShortcut(QKeySequence("Ctrl+E"));
-    QAction *exportJsonAct = fileMenu->addAction("Export to JSON...", this, &MainWindow::onExportJson);
-    QAction *exportTxtAct = fileMenu->addAction("Export to Text File...", this, &MainWindow::onExportTxt);
+    fileMenu->addAction("Dump Targets to JSON...", this, &MainWindow::onExportJson);
+    fileMenu->addAction("Dump Targets to TXT...", this, &MainWindow::onExportTxt);
     fileMenu->addSeparator();
-    fileMenu->addAction("Exit", this, &QWidget::close, QKeySequence::Quit);
+    fileMenu->addAction("Exit Cyberdeck", this, &QWidget::close, QKeySequence::Quit);
 
     // Tools Menu
-    QMenu *toolsMenu = menuBar->addMenu("&Tools");
+    QMenu *toolsMenu = menuBar->addMenu("&[TOOLS]");
     toolsMenu->addAction("Deep Port Scanner...", this, &MainWindow::onDeepPortScan, QKeySequence("Ctrl+P"));
-    toolsMenu->addAction("Wake-on-LAN (WOL)...", this, &MainWindow::onWakeOnLan, QKeySequence("Ctrl+W"));
+    toolsMenu->addAction("Wake-on-LAN Injector...", this, &MainWindow::onWakeOnLan, QKeySequence("Ctrl+W"));
     toolsMenu->addSeparator();
-    toolsMenu->addAction("Refresh Network Interfaces", this, &MainWindow::onRefreshInterfaces, QKeySequence("F5"));
+    toolsMenu->addAction("Refresh Network Adapters", this, &MainWindow::onRefreshInterfaces, QKeySequence("F5"));
 
     // View Menu
-    QMenu *viewMenu = menuBar->addMenu("&View");
-    QAction *themeAct = viewMenu->addAction("Toggle Dark / Light Theme", this, &MainWindow::onToggleTheme, QKeySequence("Ctrl+T"));
-    Q_UNUSED(themeAct);
+    QMenu *viewMenu = menuBar->addMenu("&[VIEW]");
+    viewMenu->addAction("Toggle Theme Palette", this, &MainWindow::onToggleTheme, QKeySequence("Ctrl+T"));
 
     // Help Menu
-    QMenu *helpMenu = menuBar->addMenu("&Help");
-    helpMenu->addAction("About IP Scanner", this, &MainWindow::onAbout);
+    QMenu *helpMenu = menuBar->addMenu("&[HELP]");
+    helpMenu->addAction("About Cyberdeck Radar", this, &MainWindow::onAbout);
 }
 
 void MainWindow::setupUi()
@@ -115,66 +119,74 @@ void MainWindow::setupUi()
     setCentralWidget(centralWidget);
 
     QVBoxLayout *mainLayout = new QVBoxLayout(centralWidget);
-    mainLayout->setContentsMargins(14, 14, 14, 14);
-    mainLayout->setSpacing(10);
+    mainLayout->setContentsMargins(12, 10, 12, 10);
+    mainLayout->setSpacing(8);
 
     // ==========================================
-    // 1. Control Card (Top Bar)
+    // 1. Cyberdeck Title & Control Card
     // ==========================================
     QFrame *controlCard = new QFrame(this);
     controlCard->setObjectName("controlCard");
     QVBoxLayout *cardLayout = new QVBoxLayout(controlCard);
-    cardLayout->setContentsMargins(14, 12, 14, 12);
-    cardLayout->setSpacing(10);
+    cardLayout->setContentsMargins(12, 10, 12, 10);
+    cardLayout->setSpacing(8);
 
-    // Row 1: Interface & IP Range & Primary Action
+    // Row 0: Retro Terminal ASCII Title
+    QLabel *asciiTitle = new QLabel(
+        "┌─[ SYS.NET_RADAR // CYBERDECK SUBNET RECONNAISSANCE CONSOLE v2.4 ]"
+        "────────────────────────────────────────────────────────┐", this);
+    asciiTitle->setObjectName("titleBanner");
+    cardLayout->addWidget(asciiTitle);
+
+    // Row 1: Target Parameters
     QHBoxLayout *row1 = new QHBoxLayout();
     row1->setSpacing(8);
 
-    QLabel *ifaceLbl = new QLabel("Interface:", this);
-    ifaceLbl->setStyleSheet("font-weight: 600;");
+    QLabel *ifaceLbl = new QLabel("IFACE: >", this);
+    ifaceLbl->setStyleSheet("font-weight: bold;");
     m_ifaceCombo = new QComboBox(this);
-    m_ifaceCombo->setMinimumWidth(230);
+    m_ifaceCombo->setMinimumWidth(210);
 
-    m_refreshIfaceBtn = new QPushButton("Refresh", this);
-    m_refreshIfaceBtn->setToolTip("Refresh network interfaces");
-    m_refreshIfaceBtn->setMinimumWidth(75);
-    m_refreshIfaceBtn->setFixedHeight(32);
+    m_refreshIfaceBtn = new QPushButton("REFRESH", this);
+    m_refreshIfaceBtn->setToolTip("Query host network interfaces");
+    m_refreshIfaceBtn->setFixedWidth(80);
+    m_refreshIfaceBtn->setFixedHeight(28);
 
-    QLabel *rangeLbl = new QLabel("Range:", this);
-    rangeLbl->setStyleSheet("font-weight: 600; margin-left: 4px;");
+    QLabel *rangeLbl = new QLabel("RANGE: >", this);
+    rangeLbl->setStyleSheet("font-weight: bold; margin-left: 4px;");
 
     m_startIpEdit = new QLineEdit(this);
     m_startIpEdit->setPlaceholderText("192.168.1.1");
     m_startIpEdit->setFixedWidth(120);
 
-    QLabel *toLbl = new QLabel("to", this);
+    QLabel *toLbl = new QLabel("..", this);
+    toLbl->setStyleSheet("font-weight: bold;");
 
     m_endIpEdit = new QLineEdit(this);
     m_endIpEdit->setPlaceholderText("192.168.1.254");
     m_endIpEdit->setFixedWidth(120);
 
     m_cidrCombo = new QComboBox(this);
-    m_cidrCombo->addItem("Preset: /24 (254 hosts)", 24);
-    m_cidrCombo->addItem("Preset: /23 (510 hosts)", 23);
-    m_cidrCombo->addItem("Preset: /22 (1022 hosts)", 22);
-    m_cidrCombo->addItem("Preset: /16 (65534 hosts)", 16);
-    m_cidrCombo->addItem("Custom Range", 0);
+    m_cidrCombo->addItem("PRESET: /24 (254 NODES)", 24);
+    m_cidrCombo->addItem("PRESET: /23 (510 NODES)", 23);
+    m_cidrCombo->addItem("PRESET: /22 (1022 NODES)", 22);
+    m_cidrCombo->addItem("PRESET: /16 (65534 NODES)", 16);
+    m_cidrCombo->addItem("CUSTOM RANGE", 0);
     m_cidrCombo->setMinimumWidth(185);
 
-    m_scanBtn = new QPushButton("Start Scan", this);
+    m_scanBtn = new QPushButton("▶ EXEC SCAN", this);
     m_scanBtn->setObjectName("primaryBtn");
-    m_scanBtn->setMinimumWidth(105);
-    m_scanBtn->setFixedHeight(32);
+    m_scanBtn->setMinimumWidth(110);
+    m_scanBtn->setFixedHeight(28);
 
-    m_pauseBtn = new QPushButton("Pause", this);
+    m_pauseBtn = new QPushButton("⏸ HALT", this);
     m_pauseBtn->setFixedWidth(70);
-    m_pauseBtn->setFixedHeight(32);
+    m_pauseBtn->setFixedHeight(28);
     m_pauseBtn->setEnabled(false);
 
-    m_clearBtn = new QPushButton("Clear", this);
+    m_clearBtn = new QPushButton("⌫ FLUSH", this);
     m_clearBtn->setFixedWidth(65);
-    m_clearBtn->setFixedHeight(32);
+    m_clearBtn->setFixedHeight(28);
 
     row1->addWidget(ifaceLbl);
     row1->addWidget(m_ifaceCombo);
@@ -191,35 +203,42 @@ void MainWindow::setupUi()
 
     cardLayout->addLayout(row1);
 
-    // Row 2: Advanced Options & Quick Tools
+    // Row 2: Subsystem Tuning & Tools
     QHBoxLayout *row2 = new QHBoxLayout();
-    row2->setSpacing(10);
+    row2->setSpacing(8);
 
-    QLabel *threadsLbl = new QLabel("Threads:", this);
+    QLabel *threadsLbl = new QLabel("WORKERS: >", this);
     m_threadsSpin = new QSpinBox(this);
     m_threadsSpin->setRange(1, 128);
     m_threadsSpin->setValue(45);
-    m_threadsSpin->setSuffix(" workers");
+    m_threadsSpin->setSuffix(" THREADS");
 
-    QLabel *timeoutLbl = new QLabel("Timeout:", this);
+    QLabel *timeoutLbl = new QLabel("TIMEOUT: >", this);
     m_timeoutSpin = new QSpinBox(this);
     m_timeoutSpin->setRange(100, 3000);
     m_timeoutSpin->setSingleStep(50);
     m_timeoutSpin->setValue(400);
-    m_timeoutSpin->setSuffix(" ms");
+    m_timeoutSpin->setSuffix(" MS");
 
-    m_scanPortsCheck = new QCheckBox("Probe Ports", this);
+    m_scanPortsCheck = new QCheckBox("PROBE_SERVICES", this);
     m_scanPortsCheck->setChecked(true);
-    m_scanPortsCheck->setToolTip("Quickly check common ports (Web, SSH, SMB, DNS)");
+    m_scanPortsCheck->setToolTip("Probe ports 80, 443, 22, 445, 53 for active services");
 
-    m_onlyAliveCheck = new QCheckBox("Online Only", this);
+    m_onlyAliveCheck = new QCheckBox("ALIVE_ONLY", this);
     m_onlyAliveCheck->setChecked(true);
-    m_onlyAliveCheck->setToolTip("Show only alive / responding devices in the table");
+    m_onlyAliveCheck->setToolTip("Display only active online nodes");
 
-    m_portScanToolBtn = new QPushButton("Port Scanner", this);
-    m_wolToolBtn = new QPushButton("Wake-on-LAN", this);
-    m_exportBtn = new QPushButton("Export...", this);
-    m_themeBtn = new QPushButton("Toggle Theme", this);
+    m_portScanToolBtn = new QPushButton("🔍 PORT_RECON", this);
+    m_wolToolBtn = new QPushButton("⚡ WOL_INJECT", this);
+    m_exportBtn = new QPushButton("💾 DUMP_DATA", this);
+
+    m_themeCombo = new QComboBox(this);
+    m_themeCombo->addItem("PALETTE: MATRIX GREEN", ThemeRetroGreen);
+    m_themeCombo->addItem("PALETTE: AMBER CRT", ThemeRetroAmber);
+    m_themeCombo->addItem("PALETTE: CYBER CYAN", ThemeRetroCyan);
+    m_themeCombo->addItem("PALETTE: CLEAN DARK", ThemeDark);
+    m_themeCombo->addItem("PALETTE: CLEAN LIGHT", ThemeLight);
+    m_themeCombo->setMinimumWidth(205);
 
     row2->addWidget(threadsLbl);
     row2->addWidget(m_threadsSpin);
@@ -231,38 +250,42 @@ void MainWindow::setupUi()
     row2->addWidget(m_portScanToolBtn);
     row2->addWidget(m_wolToolBtn);
     row2->addWidget(m_exportBtn);
-    row2->addWidget(m_themeBtn);
+    row2->addWidget(m_themeCombo);
 
     cardLayout->addLayout(row2);
     mainLayout->addWidget(controlCard);
 
     // ==========================================
-    // 2. Filter & Metrics Bar
+    // 2. Real-Time Telemetry & Filter HUD
     // ==========================================
     QFrame *filterBar = new QFrame(this);
     filterBar->setObjectName("filterBar");
     QHBoxLayout *filterLayout = new QHBoxLayout(filterBar);
-    filterLayout->setContentsMargins(12, 8, 12, 8);
-    filterLayout->setSpacing(10);
+    filterLayout->setContentsMargins(10, 6, 10, 6);
+    filterLayout->setSpacing(8);
 
+    QLabel *filterPrefix = new QLabel("> FILTER_QUERY:", this);
+    filterPrefix->setStyleSheet("font-weight: bold;");
     m_filterEdit = new QLineEdit(this);
-    m_filterEdit->setPlaceholderText("🔍 Quick filter by IP, Hostname, MAC, Vendor, Port...");
+    m_filterEdit->setPlaceholderText("Enter IP, Hostname, MAC, Vendor or Service signature...");
     m_filterEdit->setClearButtonEnabled(true);
+
+    filterLayout->addWidget(filterPrefix);
     filterLayout->addWidget(m_filterEdit, 2);
 
-    m_aliveBadge = new QLabel("● Online: 0", this);
+    m_aliveBadge = new QLabel("[● ONLINE: 0]", this);
     m_aliveBadge->setObjectName("aliveBadge");
     m_aliveBadge->setProperty("class", "badge");
 
-    m_offlineBadge = new QLabel("○ Offline: 0", this);
+    m_offlineBadge = new QLabel("[○ OFFLINE: 0]", this);
     m_offlineBadge->setObjectName("offlineBadge");
     m_offlineBadge->setProperty("class", "badge");
 
-    m_totalBadge = new QLabel("Total: 0", this);
+    m_totalBadge = new QLabel("[TARGETS: 0]", this);
     m_totalBadge->setObjectName("totalBadge");
     m_totalBadge->setProperty("class", "badge");
 
-    m_timeBadge = new QLabel("⏱ 00:00.0", this);
+    m_timeBadge = new QLabel("[⏱ 00:00.0]", this);
     m_timeBadge->setObjectName("timeBadge");
     m_timeBadge->setProperty("class", "badge");
 
@@ -273,22 +296,22 @@ void MainWindow::setupUi()
 
     mainLayout->addWidget(filterBar);
 
-    // Progress Bar & Status
+    // Segmented Progress Bar & State
     QHBoxLayout *progLayout = new QHBoxLayout();
     m_progressBar = new QProgressBar(this);
     m_progressBar->setRange(0, 100);
     m_progressBar->setValue(0);
     m_progressBar->setTextVisible(true);
 
-    m_statusLabel = new QLabel("Ready to scan.", this);
-    m_statusLabel->setStyleSheet("color: #94a3b8; font-size: 12px;");
+    m_statusLabel = new QLabel("> STATUS: STANDBY // ENGINE ARMED.", this);
+    m_statusLabel->setStyleSheet("font-size: 11px; font-weight: bold;");
 
     progLayout->addWidget(m_progressBar, 2);
     progLayout->addWidget(m_statusLabel, 1);
     mainLayout->addLayout(progLayout);
 
     // ==========================================
-    // 3. Results Table View
+    // 3. Discovered Node Matrix (Table)
     // ==========================================
     m_tableView = new QTableView(this);
     m_tableView->setModel(m_proxyModel);
@@ -301,46 +324,68 @@ void MainWindow::setupUi()
     m_tableView->horizontalHeader()->setHighlightSections(false);
     m_tableView->horizontalHeader()->setStretchLastSection(true);
 
-    // Column widths
-    m_tableView->setColumnWidth(HostTableModel::ColStatus, 95);
+    m_tableView->setColumnWidth(HostTableModel::ColStatus, 90);
     m_tableView->setColumnWidth(HostTableModel::ColIp, 130);
     m_tableView->setColumnWidth(HostTableModel::ColHostname, 170);
-    m_tableView->setColumnWidth(HostTableModel::ColPing, 90);
-    m_tableView->setColumnWidth(HostTableModel::ColMac, 150);
-    m_tableView->setColumnWidth(HostTableModel::ColVendor, 200);
-    m_tableView->setColumnWidth(HostTableModel::ColPorts, 160);
+    m_tableView->setColumnWidth(HostTableModel::ColPing, 95);
+    m_tableView->setColumnWidth(HostTableModel::ColMac, 155);
+    m_tableView->setColumnWidth(HostTableModel::ColVendor, 210);
+    m_tableView->setColumnWidth(HostTableModel::ColPorts, 180);
 
-    mainLayout->addWidget(m_tableView, 1);
+    mainLayout->addWidget(m_tableView, 2);
 
     // ==========================================
-    // 4. Host Details Bottom Card
+    // 4. Tabbed Hacker Stream & Node Inspector
     // ==========================================
-    m_detailsFrame = new QFrame(this);
-    m_detailsFrame->setObjectName("detailsCard");
-    QHBoxLayout *detailsLayout = new QHBoxLayout(m_detailsFrame);
-    detailsLayout->setContentsMargins(14, 10, 14, 10);
-    detailsLayout->setSpacing(14);
+    m_bottomTabs = new QTabWidget(this);
 
-    QVBoxLayout *infoLayout = new QVBoxLayout();
-    m_detailTitle = new QLabel("No host selected", this);
-    m_detailTitle->setStyleSheet("font-size: 14px; font-weight: bold; color: #38bdf8;");
-    m_detailInfo = new QLabel("Select a host in the table above to view device details and quick actions.", this);
-    m_detailInfo->setStyleSheet("color: #94a3b8; font-size: 12px;");
-    infoLayout->addWidget(m_detailTitle);
-    infoLayout->addWidget(m_detailInfo);
+    // --- Tab 1: Terminal Log Stream ---
+    QWidget *logTab = new QWidget(m_bottomTabs);
+    QVBoxLayout *logTabLayout = new QVBoxLayout(logTab);
+    logTabLayout->setContentsMargins(8, 6, 8, 6);
+    logTabLayout->setSpacing(6);
 
-    detailsLayout->addLayout(infoLayout, 1);
+    m_terminalLog = new QTextEdit(logTab);
+    m_terminalLog->setObjectName("terminalLog");
+    m_terminalLog->setReadOnly(true);
+    logTabLayout->addWidget(m_terminalLog);
+
+    QHBoxLayout *logControlLayout = new QHBoxLayout();
+    m_autoScrollCheck = new QCheckBox("[✓] AUTO_SCROLL", logTab);
+    m_autoScrollCheck->setChecked(true);
+    m_clearLogBtn = new QPushButton("⌫ CLEAR LOG", logTab);
+    m_clearLogBtn->setFixedWidth(105);
+
+    logControlLayout->addWidget(m_autoScrollCheck);
+    logControlLayout->addStretch();
+    logControlLayout->addWidget(m_clearLogBtn);
+    logTabLayout->addLayout(logControlLayout);
+
+    m_bottomTabs->addTab(logTab, "[ 💻 SYS_TERMINAL_STREAM ]");
+
+    // --- Tab 2: Selected Node Intel Card ---
+    QWidget *intelTab = new QWidget(m_bottomTabs);
+    QVBoxLayout *intelTabLayout = new QVBoxLayout(intelTab);
+    intelTabLayout->setContentsMargins(12, 8, 12, 8);
+    intelTabLayout->setSpacing(8);
+
+    m_detailTitle = new QLabel("[ NO NODE SELECTED ]", intelTab);
+    m_detailTitle->setStyleSheet("font-size: 13px; font-weight: bold;");
+
+    m_detailInfo = new QLabel("> Click any active target in the matrix above to extract full intel.", intelTab);
+    intelTabLayout->addWidget(m_detailTitle);
+    intelTabLayout->addWidget(m_detailInfo);
 
     QHBoxLayout *actionsLayout = new QHBoxLayout();
-    actionsLayout->setSpacing(8);
+    actionsLayout->setSpacing(6);
 
-    m_btnHttp = new QPushButton("🌐 HTTP", this);
-    m_btnHttps = new QPushButton("🔒 HTTPS", this);
-    m_btnSsh = new QPushButton("💻 SSH", this);
-    m_btnPing = new QPushButton("🏓 Ping", this);
-    m_btnPortScan = new QPushButton("🔍 Ports", this);
-    m_btnWol = new QPushButton("⚡ WOL", this);
-    m_btnCopy = new QPushButton("📋 Copy", this);
+    m_btnHttp = new QPushButton("🌐 HTTP", intelTab);
+    m_btnHttps = new QPushButton("🔒 HTTPS", intelTab);
+    m_btnSsh = new QPushButton("💻 SSH", intelTab);
+    m_btnPing = new QPushButton("🏓 ICMP PING", intelTab);
+    m_btnPortScan = new QPushButton("🔍 DEEP PORTS", intelTab);
+    m_btnWol = new QPushButton("⚡ WOL INJECT", intelTab);
+    m_btnCopy = new QPushButton("📋 COPY INTEL", intelTab);
 
     m_btnHttp->setEnabled(false);
     m_btnHttps->setEnabled(false);
@@ -357,11 +402,16 @@ void MainWindow::setupUi()
     actionsLayout->addWidget(m_btnPortScan);
     actionsLayout->addWidget(m_btnWol);
     actionsLayout->addWidget(m_btnCopy);
+    actionsLayout->addStretch();
 
-    detailsLayout->addLayout(actionsLayout);
-    mainLayout->addWidget(m_detailsFrame);
+    intelTabLayout->addLayout(actionsLayout);
+    m_bottomTabs->addTab(intelTab, "[ 📡 NODE_INTEL // TARGET_DETAILS ]");
 
-    // Connect signals
+    mainLayout->addWidget(m_bottomTabs, 1);
+
+    // ==========================================
+    // Event Connections
+    // ==========================================
     connect(m_refreshIfaceBtn, &QPushButton::clicked, this, &MainWindow::onRefreshInterfaces);
     connect(m_ifaceCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &MainWindow::onInterfaceChanged);
@@ -374,10 +424,13 @@ void MainWindow::setupUi()
     connect(m_onlyAliveCheck, &QCheckBox::toggled, this, &MainWindow::onShowOnlyAliveToggled);
     m_proxyModel->setOnlyAlive(m_onlyAliveCheck->isChecked());
 
+    connect(m_clearLogBtn, &QPushButton::clicked, m_terminalLog, &QTextEdit::clear);
+    connect(m_themeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &MainWindow::onThemeChanged);
+
     connect(m_portScanToolBtn, &QPushButton::clicked, this, &MainWindow::onDeepPortScan);
     connect(m_wolToolBtn, &QPushButton::clicked, this, &MainWindow::onWakeOnLan);
     connect(m_exportBtn, &QPushButton::clicked, this, &MainWindow::onExportCsv);
-    connect(m_themeBtn, &QPushButton::clicked, this, &MainWindow::onToggleTheme);
 
     connect(m_btnHttp, &QPushButton::clicked, this, &MainWindow::onOpenHttp);
     connect(m_btnHttps, &QPushButton::clicked, this, &MainWindow::onOpenHttps);
@@ -387,7 +440,18 @@ void MainWindow::setupUi()
     connect(m_btnWol, &QPushButton::clicked, this, &MainWindow::onWakeOnLan);
     connect(m_btnCopy, &QPushButton::clicked, this, &MainWindow::onCopyAllInfo);
 
-    statusBar()->showMessage("IP Scanner ready.");
+    statusBar()->showMessage("> CYBERDECK READY. SELECT INTERFACE AND INITIATE RECON.");
+}
+
+void MainWindow::appendLog(const QString &msg, const QString &tag)
+{
+    QString timestamp = QTime::currentTime().toString("hh:mm:ss.zzz");
+    QString line = QString("[%1] [%2] %3").arg(timestamp, tag, msg);
+    m_terminalLog->append(line);
+
+    if (m_autoScrollCheck->isChecked()) {
+        m_terminalLog->verticalScrollBar()->setValue(m_terminalLog->verticalScrollBar()->maximum());
+    }
 }
 
 void MainWindow::populateInterfaces()
@@ -407,17 +471,12 @@ void MainWindow::populateInterfaces()
         for (const QNetworkAddressEntry &entry : entries) {
             if (entry.ip().protocol() == QAbstractSocket::IPv4Protocol) {
                 QString ipStr = entry.ip().toString();
-                QString maskStr = entry.netmask().toString();
                 int prefixLen = entry.prefixLength();
-                if (prefixLen <= 0) {
-                    prefixLen = 24;
-                }
+                if (prefixLen <= 0) prefixLen = 24;
 
                 quint32 ipVal = entry.ip().toIPv4Address();
                 quint32 maskVal = entry.netmask().toIPv4Address();
-                if (maskVal == 0) {
-                    maskVal = 0xFFFFFF00;
-                }
+                if (maskVal == 0) maskVal = 0xFFFFFF00;
 
                 quint32 netVal = ipVal & maskVal;
                 quint32 bcastVal = netVal | (~maskVal);
@@ -436,7 +495,6 @@ void MainWindow::populateInterfaces()
 
                 m_ifaceCombo->addItem(itemText, data);
 
-                // Prefer non-virtual active ethernet/wifi
                 if (defaultIndex == -1 && !iface.humanReadableName().contains("virbr") && !iface.humanReadableName().contains("docker")) {
                     defaultIndex = curIndex;
                 }
@@ -461,7 +519,8 @@ void MainWindow::populateInterfaces()
 void MainWindow::onRefreshInterfaces()
 {
     populateInterfaces();
-    statusBar()->showMessage("Network interfaces refreshed.", 3000);
+    appendLog("Network adapter hardware table refreshed.", "IFACE");
+    statusBar()->showMessage("> NETWORK INTERFACES REFRESHED.", 3000);
 }
 
 void MainWindow::onInterfaceChanged(int index)
@@ -478,6 +537,9 @@ void MainWindow::onInterfaceChanged(int index)
         else if (prefix == 22) m_cidrCombo->setCurrentIndex(2);
         else if (prefix == 16) m_cidrCombo->setCurrentIndex(3);
         else m_cidrCombo->setCurrentIndex(4);
+
+        appendLog(QString("Bound to %1 [IP: %2, Targets: %3 - %4]")
+                  .arg(m_ifaceCombo->currentText(), data["ip"].toString(), data["startIp"].toString(), data["endIp"].toString()), "IFACE");
     }
 }
 
@@ -506,13 +568,14 @@ void MainWindow::onStartStopScan()
     if (m_scanner->isScanning()) {
         m_scanner->stopScan();
         m_clockTimer->stop();
-        m_scanBtn->setText("Start Scan");
+        m_scanBtn->setText("▶ EXEC SCAN");
         m_scanBtn->setObjectName("primaryBtn");
         m_scanBtn->setStyle(m_scanBtn->style());
         m_pauseBtn->setEnabled(false);
-        m_pauseBtn->setText("Pause");
-        m_statusLabel->setText("Scan stopped by user.");
-        statusBar()->showMessage("Scan cancelled.");
+        m_pauseBtn->setText("⏸ HALT");
+        m_statusLabel->setText("> SCAN SEQUENCE ABORTED BY OPERATOR.");
+        appendLog("OPERATOR ABORT: Probe sequence stopped.", "WARN");
+        statusBar()->showMessage("> SCAN SEQUENCE CANCELLED.");
         return;
     }
 
@@ -523,7 +586,7 @@ void MainWindow::onStartStopScan()
     QHostAddress eAddr(endIp);
 
     if (sAddr.protocol() != QAbstractSocket::IPv4Protocol || eAddr.protocol() != QAbstractSocket::IPv4Protocol) {
-        QMessageBox::warning(this, "Invalid IP Range", "Please enter valid IPv4 addresses for Start IP and End IP.");
+        QMessageBox::warning(this, "INVALID RANGE", "Target coordinates must be valid IPv4 addresses.");
         return;
     }
 
@@ -534,16 +597,21 @@ void MainWindow::onStartStopScan()
     double timeoutSec = m_timeoutSpin->value() / 1000.0;
     bool scanPorts = m_scanPortsCheck->isChecked();
 
-    m_scanBtn->setText("Stop Scan");
+    m_scanBtn->setText("■ ABORT");
     m_scanBtn->setObjectName("scanBtnActive");
     m_scanBtn->setStyle(m_scanBtn->style());
     m_pauseBtn->setEnabled(true);
-    m_pauseBtn->setText("Pause");
+    m_pauseBtn->setText("⏸ HALT");
 
     m_scanTimer.start();
     m_clockTimer->start();
 
-    statusBar()->showMessage(QString("Scanning subnet %1 to %2...").arg(startIp, endIp));
+    appendLog(QString("RECON_START: Scanning targets %1 to %2 (Threads: %3, Timeout: %4ms, PortProbe: %5)")
+              .arg(startIp, endIp)
+              .arg(concurrency)
+              .arg(timeoutSec * 1000.0)
+              .arg(scanPorts ? "ENABLED" : "DISABLED"), "SCAN");
+
     m_scanner->startScan(startIp, endIp, concurrency, timeoutSec, scanPorts);
 }
 
@@ -551,12 +619,14 @@ void MainWindow::onPauseResumeScan()
 {
     if (m_scanner->isPaused()) {
         m_scanner->resumeScan();
-        m_pauseBtn->setText("Pause");
-        m_statusLabel->setText("Scanning resumed...");
+        m_pauseBtn->setText("⏸ HALT");
+        m_statusLabel->setText("> RECONNAISSANCE RESUMED.");
+        appendLog("SCAN RESUMED.", "SYS");
     } else if (m_scanner->isScanning()) {
         m_scanner->pauseScan();
-        m_pauseBtn->setText("Resume");
-        m_statusLabel->setText("Scanning paused.");
+        m_pauseBtn->setText("▶ RESUME");
+        m_statusLabel->setText("> SCAN SUSPENDED [HALT MODE].");
+        appendLog("SCAN SUSPENDED.", "SYS");
     }
 }
 
@@ -567,10 +637,10 @@ void MainWindow::onClearResults()
     }
     m_model->clear();
     m_progressBar->setValue(0);
-    m_timeBadge->setText("⏱ 00:00.0");
-    m_statusLabel->setText("Results cleared.");
-    m_detailTitle->setText("No host selected");
-    m_detailInfo->setText("Select a host in the table above to view device details and quick actions.");
+    m_timeBadge->setText("[⏱ 00:00.0]");
+    m_statusLabel->setText("> MATRIX PURGED.");
+    m_detailTitle->setText("[ NO NODE SELECTED ]");
+    m_detailInfo->setText("> Click any active target in the matrix above to extract full intel.");
     m_btnHttp->setEnabled(false);
     m_btnHttps->setEnabled(false);
     m_btnSsh->setEnabled(false);
@@ -578,6 +648,7 @@ void MainWindow::onClearResults()
     m_btnPortScan->setEnabled(false);
     m_btnWol->setEnabled(false);
     m_btnCopy->setEnabled(false);
+    appendLog("Target matrix purged.", "SYS");
 }
 
 void MainWindow::onFilterTextChanged(const QString &text)
@@ -594,7 +665,7 @@ void MainWindow::onScanStarted(int totalHosts)
 {
     m_progressBar->setRange(0, totalHosts);
     m_progressBar->setValue(0);
-    m_statusLabel->setText(QString("Starting scan across %1 hosts...").arg(totalHosts));
+    m_statusLabel->setText(QString("> PROBING %1 TARGET NODES...").arg(totalHosts));
 }
 
 void MainWindow::updateMissingArpEntries()
@@ -623,6 +694,20 @@ void MainWindow::onHostDiscovered(const HostItem &host)
             h.vendor = MacVendorLookup::instance().lookup(mac);
         }
     }
+
+    if (h.isAlive) {
+        appendLog(QString("NODE_UP: %1 (%2) [RTT: %3 ms] MAC: %4 [%5]")
+                  .arg(h.ip)
+                  .arg(h.hostname.isEmpty() ? "<UNRESOLVED>" : h.hostname)
+                  .arg(h.responseTimeMs, 0, 'f', 1)
+                  .arg(h.macAddress.isEmpty() ? "--:--:--:--:--:--" : h.macAddress)
+                  .arg(h.vendor.isEmpty() ? "<UNKNOWN_OUI>" : h.vendor), "+");
+
+        if (!h.openPorts.isEmpty()) {
+            appendLog(QString("SERVICES: %1 -> %2").arg(h.ip, h.openPortsSummary()), "*");
+        }
+    }
+
     m_model->addOrUpdateHost(h);
 }
 
@@ -630,7 +715,7 @@ void MainWindow::onScanProgress(int completed, int total, const QString &current
 {
     m_progressBar->setValue(completed);
     int percent = (total > 0) ? (completed * 100 / total) : 0;
-    m_statusLabel->setText(QString("Probing %1 (%2% - %3 / %4 hosts)").arg(currentIp).arg(percent).arg(completed).arg(total));
+    m_statusLabel->setText(QString("> PROBING %1 // [%2% // %3 / %4 TARGETS]").arg(currentIp).arg(percent).arg(completed).arg(total));
 
     if (completed % 8 == 0) {
         updateMissingArpEntries();
@@ -640,11 +725,11 @@ void MainWindow::onScanProgress(int completed, int total, const QString &current
 void MainWindow::onScanFinished()
 {
     m_clockTimer->stop();
-    m_scanBtn->setText("Start Scan");
+    m_scanBtn->setText("▶ EXEC SCAN");
     m_scanBtn->setObjectName("primaryBtn");
     m_scanBtn->setStyle(m_scanBtn->style());
     m_pauseBtn->setEnabled(false);
-    m_pauseBtn->setText("Pause");
+    m_pauseBtn->setText("⏸ HALT");
 
     updateMissingArpEntries();
 
@@ -654,8 +739,11 @@ void MainWindow::onScanFinished()
     double elapsedSec = elapsedMs / 1000.0;
 
     m_progressBar->setValue(m_progressBar->maximum());
-    m_statusLabel->setText(QString("Scan completed in %1s! Found %2 online hosts.").arg(elapsedSec, 0, 'f', 1).arg(alive));
-    statusBar()->showMessage(QString("Scan completed: %1 online, %2 total hosts scanned in %3s.").arg(alive).arg(total).arg(elapsedSec, 0, 'f', 1));
+    m_statusLabel->setText(QString("> RECON FINISHED IN %1s // %2 NODES ACTIVE.").arg(elapsedSec, 0, 'f', 1).arg(alive));
+    statusBar()->showMessage(QString("> RECON FINISHED: %1 ONLINE, %2 TOTAL IN %3s.").arg(alive).arg(total).arg(elapsedSec, 0, 'f', 1));
+
+    appendLog(QString("RECON_COMPLETE: %1 online nodes identified across %2 targets in %3s.")
+              .arg(alive).arg(total).arg(elapsedSec, 0, 'f', 1), "SYS");
 
     if (m_tableView->selectionModel()->selectedRows().isEmpty() && m_proxyModel->rowCount() > 0) {
         m_tableView->selectRow(0);
@@ -669,7 +757,7 @@ void MainWindow::onTimerTick()
         int mins = static_cast<int>(ms / 60000);
         int secs = static_cast<int>((ms % 60000) / 1000);
         int tenths = static_cast<int>((ms % 1000) / 100);
-        m_timeBadge->setText(QString("⏱ %1:%2.%3")
+        m_timeBadge->setText(QString("[⏱ %1:%2.%3]")
                              .arg(mins, 2, 10, QChar('0'))
                              .arg(secs, 2, 10, QChar('0'))
                              .arg(tenths));
@@ -697,8 +785,8 @@ void MainWindow::onTableRowSelected(const QItemSelection &selected, const QItemS
 void MainWindow::updateHostDetailsCard(const HostItem &host)
 {
     if (host.ip.isEmpty()) {
-        m_detailTitle->setText("No host selected");
-        m_detailInfo->setText("Select a host in the table above to view device details and quick actions.");
+        m_detailTitle->setText("[ NO NODE SELECTED ]");
+        m_detailInfo->setText("> Click any active target in the matrix above to extract full intel.");
         m_btnHttp->setEnabled(false);
         m_btnHttps->setEnabled(false);
         m_btnSsh->setEnabled(false);
@@ -709,17 +797,18 @@ void MainWindow::updateHostDetailsCard(const HostItem &host)
         return;
     }
 
-    QString title = host.hostname.isEmpty() ? host.ip : QString("%1  (%2)").arg(host.ip, host.hostname);
+    QString title = host.hostname.isEmpty() ? QString("[ TARGET: %1 ]").arg(host.ip)
+                                           : QString("[ TARGET: %1 // IDENT: %2 ]").arg(host.ip, host.hostname);
     m_detailTitle->setText(title);
 
     QStringList details;
-    details << QString("Status: <b>%1</b>").arg(host.statusText());
+    details << QString("STATE: [ %1 ]").arg(host.statusText());
     if (!host.macAddress.isEmpty()) {
-        QString vendorStr = host.vendor.isEmpty() ? "Unknown Vendor" : host.vendor;
-        details << QString("MAC: <b>%1</b> (%2)").arg(host.macAddress, vendorStr);
+        QString vendorStr = host.vendor.isEmpty() ? "<UNKNOWN_OUI>" : host.vendor;
+        details << QString("MAC: [ %1 ] (%2)").arg(host.macAddress, vendorStr);
     }
     if (!host.openPorts.isEmpty()) {
-        details << QString("Open Services: <b>%1</b>").arg(host.openPortsSummary());
+        details << QString("SERVICES: [ %1 ]").arg(host.openPortsSummary());
     }
 
     m_detailInfo->setText(details.join("  |  "));
@@ -739,7 +828,6 @@ void MainWindow::onTableDoubleClicked(const QModelIndex &index)
     HostItem host = getSelectedHost();
     if (host.ip.isEmpty()) return;
 
-    // If HTTP/HTTPS open, open in browser, otherwise ping
     if (host.openPorts.contains(80)) {
         onOpenHttp();
     } else if (host.openPorts.contains(443)) {
@@ -760,24 +848,24 @@ void MainWindow::onContextMenuRequested(const QPoint &pos)
     if (host.ip.isEmpty()) return;
 
     QMenu menu(this);
-    menu.addAction("🌐 Open in Web Browser (HTTP)", this, &MainWindow::onOpenHttp);
-    menu.addAction("🔒 Open in Web Browser (HTTPS)", this, &MainWindow::onOpenHttps);
-    menu.addAction("💻 Connect via SSH", this, &MainWindow::onOpenSsh);
+    menu.addAction("🌐 [HTTP] Launch Web Browser", this, &MainWindow::onOpenHttp);
+    menu.addAction("🔒 [HTTPS] Launch TLS Browser", this, &MainWindow::onOpenHttps);
+    menu.addAction("💻 [SSH] Spawn Terminal Session", this, &MainWindow::onOpenSsh);
     menu.addSeparator();
-    menu.addAction("🏓 Ping Host", this, &MainWindow::onPingHost);
-    menu.addAction("🔍 Deep Port Scanner...", this, &MainWindow::onDeepPortScan);
+    menu.addAction("🏓 [PING] Send ICMP Probe Stream", this, &MainWindow::onPingHost);
+    menu.addAction("🔍 [PORT_RECON] Deep Port Scanner...", this, &MainWindow::onDeepPortScan);
     if (!host.macAddress.isEmpty()) {
-        menu.addAction("⚡ Send Wake-on-LAN Magic Packet...", this, &MainWindow::onWakeOnLan);
+        menu.addAction("⚡ [WOL] Transmit Magic Packet Frame...", this, &MainWindow::onWakeOnLan);
     }
     menu.addSeparator();
-    menu.addAction("📋 Copy IP Address", this, &MainWindow::onCopyIp);
+    menu.addAction("📋 Copy Target IP", this, &MainWindow::onCopyIp);
     if (!host.macAddress.isEmpty()) {
-        menu.addAction("📋 Copy MAC Address", this, &MainWindow::onCopyMac);
+        menu.addAction("📋 Copy Target MAC", this, &MainWindow::onCopyMac);
     }
     if (!host.hostname.isEmpty()) {
-        menu.addAction("📋 Copy Hostname", this, &MainWindow::onCopyHostname);
+        menu.addAction("📋 Copy Target Hostname", this, &MainWindow::onCopyHostname);
     }
-    menu.addAction("📋 Copy All Host Details", this, &MainWindow::onCopyAllInfo);
+    menu.addAction("📋 Copy Complete Target Intel", this, &MainWindow::onCopyAllInfo);
 
     menu.exec(m_tableView->viewport()->mapToGlobal(pos));
 }
@@ -787,6 +875,7 @@ void MainWindow::onOpenHttp()
     HostItem host = getSelectedHost();
     if (!host.ip.isEmpty()) {
         QDesktopServices::openUrl(QUrl(QString("http://%1").arg(host.ip)));
+        appendLog(QString("Triggered HTTP session for http://%1").arg(host.ip), "BROWSER");
     }
 }
 
@@ -795,6 +884,7 @@ void MainWindow::onOpenHttps()
     HostItem host = getSelectedHost();
     if (!host.ip.isEmpty()) {
         QDesktopServices::openUrl(QUrl(QString("https://%1").arg(host.ip)));
+        appendLog(QString("Triggered HTTPS session for https://%1").arg(host.ip), "BROWSER");
     }
 }
 
@@ -803,22 +893,22 @@ void MainWindow::onOpenSsh()
     HostItem host = getSelectedHost();
     if (host.ip.isEmpty()) return;
 
-    // Launch default terminal with ssh or copy command
     QString cmd = QString("ssh %1").arg(host.ip);
     QApplication::clipboard()->setText(cmd);
 
-    // Try common terminal emulators
     QStringList terminals = {"x-terminal-emulator", "konsole", "gnome-terminal", "alacritty", "kitty", "xfce4-terminal", "xterm"};
     bool launched = false;
     for (const QString &term : terminals) {
         if (QProcess::startDetached(term, {"-e", "ssh", host.ip})) {
             launched = true;
+            appendLog(QString("SSH terminal spawned for user@%1 via %2").arg(host.ip, term), "SSH");
             break;
         }
     }
 
     if (!launched) {
-        statusBar()->showMessage(QString("Copied '%1' to clipboard.").arg(cmd), 4000);
+        appendLog(QString("Copied '%1' to clipboard.").arg(cmd), "SSH");
+        statusBar()->showMessage(QString("> COPIED '%1' TO CLIPBOARD.").arg(cmd), 4000);
     }
 }
 
@@ -827,7 +917,6 @@ void MainWindow::onPingHost()
     HostItem host = getSelectedHost();
     if (host.ip.isEmpty()) return;
 
-    // Run ping in a detached terminal or report ping
     QStringList terminals = {"x-terminal-emulator", "konsole", "gnome-terminal", "alacritty", "kitty", "xfce4-terminal", "xterm"};
     bool launched = false;
     for (const QString &term : terminals) {
@@ -842,7 +931,7 @@ void MainWindow::onPingHost()
         proc.start("ping", {"-c", "4", host.ip});
         if (proc.waitForFinished(5000)) {
             QString out = QString::fromUtf8(proc.readAllStandardOutput());
-            QMessageBox::information(this, "Ping " + host.ip, out);
+            QMessageBox::information(this, "ICMP PING // " + host.ip, out);
         }
     }
 }
@@ -875,7 +964,7 @@ void MainWindow::onCopyIp()
     HostItem host = getSelectedHost();
     if (!host.ip.isEmpty()) {
         QApplication::clipboard()->setText(host.ip);
-        statusBar()->showMessage(QString("Copied IP %1 to clipboard.").arg(host.ip), 3000);
+        statusBar()->showMessage(QString("> COPIED IP %1 TO CLIPBOARD.").arg(host.ip), 3000);
     }
 }
 
@@ -884,7 +973,7 @@ void MainWindow::onCopyMac()
     HostItem host = getSelectedHost();
     if (!host.macAddress.isEmpty()) {
         QApplication::clipboard()->setText(host.macAddress);
-        statusBar()->showMessage(QString("Copied MAC %1 to clipboard.").arg(host.macAddress), 3000);
+        statusBar()->showMessage(QString("> COPIED MAC %1 TO CLIPBOARD.").arg(host.macAddress), 3000);
     }
 }
 
@@ -893,7 +982,7 @@ void MainWindow::onCopyHostname()
     HostItem host = getSelectedHost();
     if (!host.hostname.isEmpty()) {
         QApplication::clipboard()->setText(host.hostname);
-        statusBar()->showMessage(QString("Copied Hostname %1 to clipboard.").arg(host.hostname), 3000);
+        statusBar()->showMessage(QString("> COPIED HOSTNAME %1 TO CLIPBOARD.").arg(host.hostname), 3000);
     }
 }
 
@@ -908,17 +997,17 @@ void MainWindow::onCopyAllInfo()
                             host.macAddress, host.vendor, host.openPortsSummary());
 
     QApplication::clipboard()->setText(line);
-    statusBar()->showMessage("Host details copied to clipboard.", 3000);
+    statusBar()->showMessage("> TARGET INTEL COPIED TO CLIPBOARD.", 3000);
 }
 
 void MainWindow::onExportCsv()
 {
-    QString filePath = QFileDialog::getSaveFileName(this, "Export Results to CSV", "network_scan.csv", "CSV Files (*.csv)");
+    QString filePath = QFileDialog::getSaveFileName(this, "DUMP MATRIX TO CSV", "recon_dump.csv", "CSV Files (*.csv)");
     if (filePath.isEmpty()) return;
 
     QFile file(filePath);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        QMessageBox::critical(this, "Export Error", "Could not create file for writing.");
+        QMessageBox::critical(this, "ERROR", "Failed to open file for write.");
         return;
     }
 
@@ -939,17 +1028,18 @@ void MainWindow::onExportCsv()
                         h.comments.replace("\"", "\"\""));
     }
 
-    statusBar()->showMessage(QString("Exported %1 rows to CSV.").arg(m_proxyModel->rowCount()), 4000);
+    appendLog(QString("Exported %1 records to CSV: %2").arg(m_proxyModel->rowCount()).arg(filePath), "DUMP");
+    statusBar()->showMessage(QString("> EXPORTED %1 RECORDS TO CSV.").arg(m_proxyModel->rowCount()), 4000);
 }
 
 void MainWindow::onExportJson()
 {
-    QString filePath = QFileDialog::getSaveFileName(this, "Export Results to JSON", "network_scan.json", "JSON Files (*.json)");
+    QString filePath = QFileDialog::getSaveFileName(this, "DUMP MATRIX TO JSON", "recon_dump.json", "JSON Files (*.json)");
     if (filePath.isEmpty()) return;
 
     QFile file(filePath);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        QMessageBox::critical(this, "Export Error", "Could not create file for writing.");
+        QMessageBox::critical(this, "ERROR", "Failed to open file for write.");
         return;
     }
 
@@ -976,28 +1066,29 @@ void MainWindow::onExportJson()
     QJsonDocument doc(array);
     file.write(doc.toJson(QJsonDocument::Indented));
 
-    statusBar()->showMessage(QString("Exported %1 rows to JSON.").arg(m_proxyModel->rowCount()), 4000);
+    appendLog(QString("Exported %1 records to JSON: %2").arg(m_proxyModel->rowCount()).arg(filePath), "DUMP");
+    statusBar()->showMessage(QString("> EXPORTED %1 RECORDS TO JSON.").arg(m_proxyModel->rowCount()), 4000);
 }
 
 void MainWindow::onExportTxt()
 {
-    QString filePath = QFileDialog::getSaveFileName(this, "Export Results to Text", "network_scan.txt", "Text Files (*.txt)");
+    QString filePath = QFileDialog::getSaveFileName(this, "DUMP MATRIX TO TXT", "recon_dump.txt", "Text Files (*.txt)");
     if (filePath.isEmpty()) return;
 
     QFile file(filePath);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        QMessageBox::critical(this, "Export Error", "Could not create file for writing.");
+        QMessageBox::critical(this, "ERROR", "Failed to open file for write.");
         return;
     }
 
     QTextStream out(&file);
     out << QString("%1 | %2 | %3 | %4 | %5 | %6\n")
-               .arg("IP Address", -16)
-               .arg("Hostname", -22)
-               .arg("MAC Address", -18)
-               .arg("Ping", -10)
-               .arg("Vendor", -25)
-               .arg("Open Ports");
+               .arg("IP_ADDRESS", -16)
+               .arg("HOSTNAME", -22)
+               .arg("MAC_ADDRESS", -18)
+               .arg("RTT", -10)
+               .arg("VENDOR", -25)
+               .arg("SERVICES");
     out << QString().fill('-', 110) << "\n";
 
     for (int r = 0; r < m_proxyModel->rowCount(); ++r) {
@@ -1012,18 +1103,33 @@ void MainWindow::onExportTxt()
                    .arg(h.openPortsSummary());
     }
 
-    statusBar()->showMessage(QString("Exported %1 rows to Text.").arg(m_proxyModel->rowCount()), 4000);
+    appendLog(QString("Exported %1 records to TXT: %2").arg(m_proxyModel->rowCount()).arg(filePath), "DUMP");
+    statusBar()->showMessage(QString("> EXPORTED %1 RECORDS TO TXT.").arg(m_proxyModel->rowCount()), 4000);
+}
+
+void MainWindow::onThemeChanged(int index)
+{
+    applyTheme(static_cast<ThemeMode>(index));
 }
 
 void MainWindow::onToggleTheme()
 {
-    applyTheme(!m_isDarkTheme);
+    int next = (static_cast<int>(m_currentTheme) + 1) % 5;
+    m_themeCombo->setCurrentIndex(next);
 }
 
-void MainWindow::applyTheme(bool dark)
+void MainWindow::applyTheme(ThemeMode mode)
 {
-    m_isDarkTheme = dark;
-    QString qssPath = dark ? ":/styles/dark.qss" : ":/styles/light.qss";
+    m_currentTheme = mode;
+    QString qssPath;
+    switch (mode) {
+    case ThemeRetroGreen: qssPath = ":/styles/retro_green.qss"; break;
+    case ThemeRetroAmber: qssPath = ":/styles/retro_amber.qss"; break;
+    case ThemeRetroCyan:  qssPath = ":/styles/retro_cyan.qss"; break;
+    case ThemeDark:       qssPath = ":/styles/dark.qss"; break;
+    case ThemeLight:      qssPath = ":/styles/light.qss"; break;
+    }
+
     QFile file(qssPath);
     if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         qApp->setStyleSheet(file.readAll());
@@ -1032,16 +1138,16 @@ void MainWindow::applyTheme(bool dark)
 
 void MainWindow::onAbout()
 {
-    QMessageBox::about(this, "About Network IP Scanner",
-                       "<h3>Network IP Scanner</h3>"
-                       "<p>A fast, multi-threaded Qt5 / C++ local network IP scanner.</p>"
+    QMessageBox::about(this, "ABOUT // CYBERDECK RADAR",
+                       "<h3>[ SYS.NET_RADAR // RECON CONSOLE v2.4 ]</h3>"
+                       "<p>Retro / Hacker Subnet Reconnaissance Terminal built in Qt5 / C++17.</p>"
                        "<ul>"
-                       "<li>Discovers active hosts on your local subnet</li>"
-                       "<li>Resolves Hostnames via Reverse DNS, mDNS, and NetBIOS</li>"
-                       "<li>Retrieves MAC addresses from the kernel ARP cache</li>"
-                       "<li>Identifies Hardware Vendors using built-in IEEE OUI database</li>"
-                       "<li>Probes common services (HTTP, HTTPS, SSH, SMB, DNS, etc.)</li>"
-                       "<li>Includes integrated Deep Port Scanner & Wake-on-LAN tools</li>"
-                       "<li>Supports exporting to CSV, JSON, and Text formats</li>"
+                       "<li>Multi-threaded parallel ICMP/TCP scanning core</li>"
+                       "<li>Reverse DNS / mDNS / NetBIOS node status acquisition</li>"
+                       "<li>Kernel ARP table hardware mapping</li>"
+                       "<li>Offline IEEE OUI manufacturer recognition (39,850+ OUIs)</li>"
+                       "<li>Integrated Deep Port Recon & Wake-on-LAN injector</li>"
+                       "<li>Real-time terminal stream & telemetry stream</li>"
+                       "<li>Matrix Green, Amber CRT, and Cyber Cyan color palettes</li>"
                        "</ul>");
 }

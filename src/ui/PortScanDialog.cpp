@@ -11,8 +11,8 @@ PortScanDialog::PortScanDialog(const QString &ip, QWidget *parent)
     : QDialog(parent)
     , m_scanner(new PortScanner(this))
 {
-    setWindowTitle("Deep Port Scanner - " + (ip.isEmpty() ? "Target Host" : ip));
-    resize(560, 480);
+    setWindowTitle("[ TARGET_PORT_RECON // DEEP INSPECTION ]");
+    resize(580, 500);
     setMinimumSize(480, 360);
 
     setupUi();
@@ -33,35 +33,37 @@ PortScanDialog::~PortScanDialog()
 void PortScanDialog::setTargetIp(const QString &ip)
 {
     m_ipEdit->setText(ip);
-    setWindowTitle("Deep Port Scanner - " + ip);
+    setWindowTitle(QString("[ TARGET_PORT_RECON // %1 ]").arg(ip));
 }
 
 void PortScanDialog::setupUi()
 {
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
-    mainLayout->setSpacing(12);
+    mainLayout->setSpacing(10);
 
     // Controls Grid
     QGridLayout *grid = new QGridLayout();
     grid->setSpacing(8);
 
-    QLabel *ipLbl = new QLabel("Target IP:", this);
+    QLabel *ipLbl = new QLabel("TARGET_IP: >", this);
+    ipLbl->setStyleSheet("font-weight: bold;");
     m_ipEdit = new QLineEdit(this);
     m_ipEdit->setPlaceholderText("e.g. 192.168.1.1");
 
-    QLabel *presetLbl = new QLabel("Port Range:", this);
+    QLabel *presetLbl = new QLabel("PORT_PRESET: >", this);
+    presetLbl->setStyleSheet("font-weight: bold;");
     m_presetCombo = new QComboBox(this);
-    m_presetCombo->addItem("Top 20 Common Services", 0);
-    m_presetCombo->addItem("Standard Well-Known (1 - 1024)", 1);
-    m_presetCombo->addItem("Web & Admin Services", 2);
-    m_presetCombo->addItem("Database Ports", 3);
-    m_presetCombo->addItem("Custom Range / List", 4);
+    m_presetCombo->addItem("COMMON TOP 20 PORTS", 0);
+    m_presetCombo->addItem("STANDARD WELL-KNOWN (1 - 1024)", 1);
+    m_presetCombo->addItem("WEB & ADMIN PORTS", 2);
+    m_presetCombo->addItem("DATABASE PORTS", 3);
+    m_presetCombo->addItem("CUSTOM RANGE / LIST", 4);
 
     m_customPortsEdit = new QLineEdit(this);
     m_customPortsEdit->setPlaceholderText("e.g. 80, 443, 8000-8080");
     m_customPortsEdit->setVisible(false);
 
-    m_startStopBtn = new QPushButton("Start Port Scan", this);
+    m_startStopBtn = new QPushButton("▶ EXEC_PORT_SCAN", this);
     m_startStopBtn->setObjectName("primaryBtn");
 
     grid->addWidget(ipLbl, 0, 0);
@@ -81,14 +83,14 @@ void PortScanDialog::setupUi()
     m_progressBar->setTextVisible(true);
     mainLayout->addWidget(m_progressBar);
 
-    m_statusLabel = new QLabel("Ready to scan.", this);
-    m_statusLabel->setStyleSheet("color: #94a3b8; font-size: 11px;");
+    m_statusLabel = new QLabel("> STATUS: STANDBY // AWAITING TARGET EXECUTION.", this);
+    m_statusLabel->setStyleSheet("font-size: 11px; font-weight: bold;");
     mainLayout->addWidget(m_statusLabel);
 
     // Table
     m_table = new QTableWidget(this);
     m_table->setColumnCount(4);
-    m_table->setHorizontalHeaderLabels({"Port", "Service", "Protocol", "Latency"});
+    m_table->setHorizontalHeaderLabels({"[ PORT ]", "[ SERVICE ]", "[ PROTO ]", "[ LATENCY ]"});
     m_table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
     m_table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
     m_table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
@@ -99,8 +101,8 @@ void PortScanDialog::setupUi()
 
     // Bottom buttons
     QHBoxLayout *btnLayout = new QHBoxLayout();
-    m_copyBtn = new QPushButton("Copy Open Ports", this);
-    m_closeBtn = new QPushButton("Close", this);
+    m_copyBtn = new QPushButton("📋 COPY_OPEN_PORTS", this);
+    m_closeBtn = new QPushButton("⌫ CLOSE", this);
     btnLayout->addWidget(m_copyBtn);
     btnLayout->addStretch();
     btnLayout->addWidget(m_closeBtn);

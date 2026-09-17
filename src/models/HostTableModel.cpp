@@ -30,24 +30,24 @@ QVariant HostTableModel::data(const QModelIndex &index, int role) const
     if (role == Qt::DisplayRole || role == Qt::EditRole) {
         switch (col) {
         case ColStatus:
-            return host.isAlive ? "● Online" : "○ Offline";
+            return host.isAlive ? "● [UP]" : "○ [DOWN]";
         case ColIp:
             return host.ip;
         case ColHostname:
-            return host.hostname.isEmpty() ? "-" : host.hostname;
+            return host.hostname.isEmpty() ? "<UNRESOLVED>" : host.hostname;
         case ColPing:
-            if (!host.isAlive) return "-";
+            if (!host.isAlive) return "[ ---- ]";
             if (host.responseTimeMs >= 0) {
-                return QString("%1 ms").arg(host.responseTimeMs, 0, 'f', 1);
+                return QString("[ %1 ms ]").arg(host.responseTimeMs, 0, 'f', 1);
             }
-            return "< 1 ms";
+            return "[ <1ms ]";
         case ColMac:
-            return host.macAddress.isEmpty() ? "-" : host.macAddress;
+            return host.macAddress.isEmpty() ? "--:--:--:--:--:--" : host.macAddress;
         case ColVendor:
-            return host.vendor.isEmpty() ? "-" : host.vendor;
+            return host.vendor.isEmpty() ? "<UNKNOWN>" : host.vendor;
         case ColPorts: {
             QString summary = host.openPortsSummary();
-            return summary.isEmpty() ? "-" : summary;
+            return summary.isEmpty() ? "[ NONE ]" : summary;
         }
         case ColComments:
             return host.comments;
@@ -89,21 +89,6 @@ QVariant HostTableModel::data(const QModelIndex &index, int role) const
         return host.responseTimeMs;
     }
 
-    if (role == Qt::ForegroundRole) {
-        if (col == ColStatus) {
-            return host.isAlive ? QColor("#10b981") : QColor("#6b7280");
-        }
-        if (col == ColPing && host.isAlive) {
-            if (host.responseTimeMs >= 0 && host.responseTimeMs < 15.0) {
-                return QColor("#10b981"); // Fast green
-            } else if (host.responseTimeMs < 60.0) {
-                return QColor("#f59e0b"); // Warning amber
-            } else {
-                return QColor("#ef4444"); // Slow red
-            }
-        }
-    }
-
     if (role == Qt::TextAlignmentRole) {
         if (col == ColStatus) {
             return static_cast<int>(Qt::AlignCenter);
@@ -121,14 +106,14 @@ QVariant HostTableModel::headerData(int section, Qt::Orientation orientation, in
 {
     if (orientation == Qt::Horizontal && role == Qt::DisplayRole) {
         switch (section) {
-        case ColStatus: return "Status";
-        case ColIp: return "IP Address";
-        case ColHostname: return "Hostname";
-        case ColPing: return "Latency";
-        case ColMac: return "MAC Address";
-        case ColVendor: return "Manufacturer / Vendor";
-        case ColPorts: return "Open Ports";
-        case ColComments: return "Comments";
+        case ColStatus: return "[ STATUS ]";
+        case ColIp: return "[ IP_ADDRESS ]";
+        case ColHostname: return "[ HOST_IDENT ]";
+        case ColPing: return "[ LATENCY ]";
+        case ColMac: return "[ MAC_ADDR ]";
+        case ColVendor: return "[ HARDWARE_VENDOR ]";
+        case ColPorts: return "[ OPEN_PORTS ]";
+        case ColComments: return "[ NOTES ]";
         default: return QVariant();
         }
     }

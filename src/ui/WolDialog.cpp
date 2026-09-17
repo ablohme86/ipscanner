@@ -8,8 +8,8 @@
 WolDialog::WolDialog(const QString &macAddress, const QString &broadcastIp, QWidget *parent)
     : QDialog(parent)
 {
-    setWindowTitle("Wake on LAN (Magic Packet)");
-    resize(420, 260);
+    setWindowTitle("[ WOL_PACKET_INJECTOR // MAGIC FRAME GENERATOR ]");
+    resize(460, 270);
     setMinimumSize(380, 220);
 
     setupUi();
@@ -30,24 +30,27 @@ void WolDialog::setMacAddress(const QString &mac)
 void WolDialog::setupUi()
 {
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
-    mainLayout->setSpacing(12);
+    mainLayout->setSpacing(10);
 
-    QLabel *infoLbl = new QLabel("Send a Wake-on-LAN magic packet to power on a remote machine on your network.", this);
+    QLabel *infoLbl = new QLabel("> TRANSMIT UDP MAGIC PACKET FRAME TO FORCE TARGET HARDWARE POWER_ON.", this);
     infoLbl->setWordWrap(true);
-    infoLbl->setStyleSheet("color: #94a3b8; margin-bottom: 6px;");
+    infoLbl->setStyleSheet("font-size: 11px; font-weight: bold; margin-bottom: 4px;");
     mainLayout->addWidget(infoLbl);
 
     QGridLayout *grid = new QGridLayout();
-    grid->setSpacing(10);
+    grid->setSpacing(8);
 
-    QLabel *macLbl = new QLabel("MAC Address:", this);
+    QLabel *macLbl = new QLabel("TARGET_MAC: >", this);
+    macLbl->setStyleSheet("font-weight: bold;");
     m_macEdit = new QLineEdit(this);
     m_macEdit->setPlaceholderText("e.g. 00:11:22:33:44:55");
 
-    QLabel *bcastLbl = new QLabel("Broadcast IP:", this);
+    QLabel *bcastLbl = new QLabel("BCAST_IP: >", this);
+    bcastLbl->setStyleSheet("font-weight: bold;");
     m_broadcastEdit = new QLineEdit("255.255.255.255", this);
 
-    QLabel *portLbl = new QLabel("Port (UDP):", this);
+    QLabel *portLbl = new QLabel("UDP_PORT: >", this);
+    portLbl->setStyleSheet("font-weight: bold;");
     m_portEdit = new QLineEdit("9", this);
 
     grid->addWidget(macLbl, 0, 0);
@@ -61,13 +64,13 @@ void WolDialog::setupUi()
 
     m_statusLabel = new QLabel("", this);
     m_statusLabel->setWordWrap(true);
-    m_statusLabel->setStyleSheet("font-weight: bold; margin-top: 4px;");
+    m_statusLabel->setStyleSheet("font-weight: bold; margin-top: 4px; font-size: 11px;");
     mainLayout->addWidget(m_statusLabel);
 
     QHBoxLayout *btnLayout = new QHBoxLayout();
-    m_sendBtn = new QPushButton("Send Wake-on-LAN", this);
+    m_sendBtn = new QPushButton("⚡ INJECT_MAGIC_FRAME", this);
     m_sendBtn->setObjectName("primaryBtn");
-    m_closeBtn = new QPushButton("Close", this);
+    m_closeBtn = new QPushButton("⌫ CLOSE", this);
 
     btnLayout->addWidget(m_sendBtn);
     btnLayout->addStretch();

@@ -9,6 +9,8 @@
 #include <QProgressBar>
 #include <QLabel>
 #include <QTableView>
+#include <QTextEdit>
+#include <QTabWidget>
 #include <QElapsedTimer>
 #include <QTimer>
 #include <QFrame>
@@ -20,10 +22,19 @@
 class MainWindow : public QMainWindow {
     Q_OBJECT
 public:
+    enum ThemeMode {
+        ThemeRetroGreen = 0,
+        ThemeRetroAmber,
+        ThemeRetroCyan,
+        ThemeDark,
+        ThemeLight
+    };
+
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow() override;
 
     void startScanDirect() { onStartStopScan(); }
+    void setPaletteTheme(ThemeMode mode) { applyTheme(mode); m_themeCombo->setCurrentIndex(mode); }
     NetworkScanner* scanner() const { return m_scanner; }
 
 private slots:
@@ -60,6 +71,7 @@ private slots:
     void onExportCsv();
     void onExportJson();
     void onExportTxt();
+    void onThemeChanged(int index);
     void onToggleTheme();
     void onAbout();
 
@@ -67,8 +79,9 @@ private:
     void setupUi();
     void setupMenuBar();
     void populateInterfaces();
-    void applyTheme(bool dark);
+    void applyTheme(ThemeMode mode);
     void updateMissingArpEntries();
+    void appendLog(const QString &msg, const QString &tag = "SYS");
     HostItem getSelectedHost() const;
     void updateHostDetailsCard(const HostItem &host);
 
@@ -90,7 +103,7 @@ private:
     QPushButton *m_portScanToolBtn;
     QPushButton *m_wolToolBtn;
     QPushButton *m_exportBtn;
-    QPushButton *m_themeBtn;
+    QComboBox *m_themeCombo;
 
     // Filter & Metrics Bar
     QLineEdit *m_filterEdit;
@@ -106,7 +119,13 @@ private:
     HostTableModel *m_model;
     HostSortFilterProxyModel *m_proxyModel;
 
-    // Host Details Bottom Card
+    // Bottom Tabbed Hacker HUD & Log
+    QTabWidget *m_bottomTabs;
+    QTextEdit *m_terminalLog;
+    QCheckBox *m_autoScrollCheck;
+    QPushButton *m_clearLogBtn;
+
+    // Host Details
     QFrame *m_detailsFrame;
     QLabel *m_detailTitle;
     QLabel *m_detailInfo;
@@ -122,5 +141,5 @@ private:
     NetworkScanner *m_scanner;
     QElapsedTimer m_scanTimer;
     QTimer *m_clockTimer;
-    bool m_isDarkTheme;
+    ThemeMode m_currentTheme;
 };
