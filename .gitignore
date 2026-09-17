@@ -1,0 +1,11 @@
+build/
+*.o
+*.a
+*.so
+moc_*
+qrc_*
+ui_*
+*.png
+.vscode/
+.idea/
+CMakeLists.txt.user

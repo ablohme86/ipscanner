@@ -1,0 +1,8 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <qresource prefix="/">
+        <file>styles/dark.qss</file>
+        <file>styles/light.qss</file>
+        <file>data/oui_fallback.txt</file>
+    </qresource>
+</RCC>
