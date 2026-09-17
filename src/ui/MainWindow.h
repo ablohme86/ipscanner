@@ -23,9 +23,12 @@ class MainWindow : public QMainWindow {
     Q_OBJECT
 public:
     enum ThemeMode {
-        ThemeRetroGreen = 0,
-        ThemeRetroAmber,
+        ThemeBtopTokyo = 0,
+        ThemeBtopDracula,
+        ThemeBtopGruvbox,
         ThemeRetroCyan,
+        ThemeRetroGreen,
+        ThemeRetroAmber,
         ThemeDark,
         ThemeLight
     };

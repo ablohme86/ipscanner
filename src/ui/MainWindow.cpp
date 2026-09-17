@@ -49,7 +49,7 @@ MainWindow::MainWindow(QWidget *parent)
     setupMenuBar();
     setupUi();
     populateInterfaces();
-    applyTheme(ThemeRetroGreen);
+    applyTheme(ThemeBtopTokyo);
 
     // Scanner signals
     connect(m_scanner, &NetworkScanner::scanStarted, this, &MainWindow::onScanStarted);
@@ -133,8 +133,8 @@ void MainWindow::setupUi()
 
     // Row 0: Retro Terminal ASCII Title
     QLabel *asciiTitle = new QLabel(
-        "┌─[ SYS.NET_RADAR // CYBERDECK SUBNET RECONNAISSANCE CONSOLE v2.4 ]"
-        "────────────────────────────────────────────────────────┐", this);
+        "╭─ [ SYS.NET_RADAR // BTOP CYBERDECK NETWORK RECON v2.5 ] "
+        "──────────────────────────────────────────────────────╮", this);
     asciiTitle->setObjectName("titleBanner");
     cardLayout->addWidget(asciiTitle);
 
@@ -148,6 +148,7 @@ void MainWindow::setupUi()
     m_ifaceCombo->setMinimumWidth(210);
 
     m_refreshIfaceBtn = new QPushButton("REFRESH", this);
+    m_refreshIfaceBtn->setObjectName("refreshBtn");
     m_refreshIfaceBtn->setToolTip("Query host network interfaces");
     m_refreshIfaceBtn->setFixedWidth(80);
     m_refreshIfaceBtn->setFixedHeight(28);
@@ -180,11 +181,13 @@ void MainWindow::setupUi()
     m_scanBtn->setFixedHeight(28);
 
     m_pauseBtn = new QPushButton("⏸ HALT", this);
+    m_pauseBtn->setObjectName("pauseBtn");
     m_pauseBtn->setFixedWidth(70);
     m_pauseBtn->setFixedHeight(28);
     m_pauseBtn->setEnabled(false);
 
     m_clearBtn = new QPushButton("⌫ FLUSH", this);
+    m_clearBtn->setObjectName("clearBtn");
     m_clearBtn->setFixedWidth(65);
     m_clearBtn->setFixedHeight(28);
 
@@ -229,16 +232,24 @@ void MainWindow::setupUi()
     m_onlyAliveCheck->setToolTip("Display only active online nodes");
 
     m_portScanToolBtn = new QPushButton("🔍 PORT_RECON", this);
+    m_portScanToolBtn->setObjectName("portScanBtn");
+
     m_wolToolBtn = new QPushButton("⚡ WOL_INJECT", this);
+    m_wolToolBtn->setObjectName("wolBtn");
+
     m_exportBtn = new QPushButton("💾 DUMP_DATA", this);
+    m_exportBtn->setObjectName("exportBtn");
 
     m_themeCombo = new QComboBox(this);
+    m_themeCombo->addItem("PALETTE: BTOP TOKYO NIGHT", ThemeBtopTokyo);
+    m_themeCombo->addItem("PALETTE: BTOP DRACULA", ThemeBtopDracula);
+    m_themeCombo->addItem("PALETTE: BTOP GRUVBOX", ThemeBtopGruvbox);
+    m_themeCombo->addItem("PALETTE: CYBER CYAN", ThemeRetroCyan);
     m_themeCombo->addItem("PALETTE: MATRIX GREEN", ThemeRetroGreen);
     m_themeCombo->addItem("PALETTE: AMBER CRT", ThemeRetroAmber);
-    m_themeCombo->addItem("PALETTE: CYBER CYAN", ThemeRetroCyan);
     m_themeCombo->addItem("PALETTE: CLEAN DARK", ThemeDark);
     m_themeCombo->addItem("PALETTE: CLEAN LIGHT", ThemeLight);
-    m_themeCombo->setMinimumWidth(205);
+    m_themeCombo->setMinimumWidth(215);
 
     row2->addWidget(threadsLbl);
     row2->addWidget(m_threadsSpin);
@@ -380,12 +391,19 @@ void MainWindow::setupUi()
     actionsLayout->setSpacing(6);
 
     m_btnHttp = new QPushButton("🌐 HTTP", intelTab);
+    m_btnHttp->setObjectName("btnHttp");
     m_btnHttps = new QPushButton("🔒 HTTPS", intelTab);
+    m_btnHttps->setObjectName("btnHttps");
     m_btnSsh = new QPushButton("💻 SSH", intelTab);
+    m_btnSsh->setObjectName("btnSsh");
     m_btnPing = new QPushButton("🏓 ICMP PING", intelTab);
+    m_btnPing->setObjectName("btnPing");
     m_btnPortScan = new QPushButton("🔍 DEEP PORTS", intelTab);
+    m_btnPortScan->setObjectName("btnPortScan");
     m_btnWol = new QPushButton("⚡ WOL INJECT", intelTab);
+    m_btnWol->setObjectName("btnWol");
     m_btnCopy = new QPushButton("📋 COPY INTEL", intelTab);
+    m_btnCopy->setObjectName("btnCopy");
 
     m_btnHttp->setEnabled(false);
     m_btnHttps->setEnabled(false);
@@ -446,7 +464,19 @@ void MainWindow::setupUi()
 void MainWindow::appendLog(const QString &msg, const QString &tag)
 {
     QString timestamp = QTime::currentTime().toString("hh:mm:ss.zzz");
-    QString line = QString("[%1] [%2] %3").arg(timestamp, tag, msg);
+    QString tagColor = "#7dcfff";
+    if (tag == "+") tagColor = "#9ece6a";
+    else if (tag == "*" || tag == "PORTS") tagColor = "#ff9e64";
+    else if (tag == "WARN" || tag == "!") tagColor = "#f7768e";
+    else if (tag == "IFACE") tagColor = "#bb9af7";
+    else if (tag == "INTEL") tagColor = "#73daca";
+    else if (tag == "DUMP") tagColor = "#e0af68";
+    else if (tag == "BROWSER" || tag == "SSH") tagColor = "#8ec07c";
+
+    QString line = QString("<span style=\"color:#565f89;\">[%1]</span> "
+                           "<b style=\"color:%2;\">[%3]</b> "
+                           "<span>%4</span>")
+                   .arg(timestamp, tagColor, tag, msg);
     m_terminalLog->append(line);
 
     if (m_autoScrollCheck->isChecked()) {
@@ -696,15 +726,26 @@ void MainWindow::onHostDiscovered(const HostItem &host)
     }
 
     if (h.isAlive) {
-        appendLog(QString("NODE_UP: %1 (%2) [RTT: %3 ms] MAC: %4 [%5]")
-                  .arg(h.ip)
-                  .arg(h.hostname.isEmpty() ? "<UNRESOLVED>" : h.hostname)
-                  .arg(h.responseTimeMs, 0, 'f', 1)
-                  .arg(h.macAddress.isEmpty() ? "--:--:--:--:--:--" : h.macAddress)
-                  .arg(h.vendor.isEmpty() ? "<UNKNOWN_OUI>" : h.vendor), "+");
+        QString hostFormatted = QString("<b style=\"color:#7dcfff;\">%1</b> "
+                                        "<span style=\"color:#e0af68;\">%2</span> "
+                                        "<span style=\"color:#565f89;\">|</span> "
+                                        "<span style=\"color:#bb9af7;\">%3</span> "
+                                        "<span style=\"color:#73daca;\">[%4]</span> "
+                                        "<span style=\"color:#565f89;\">|</span> "
+                                        "<b style=\"color:%5;\">RTT: %6ms</b>")
+                                .arg(h.ip)
+                                .arg(h.hostname.isEmpty() ? "&lt;UNRESOLVED&gt;" : QString("(%1)").arg(h.hostname))
+                                .arg(h.macAddress.isEmpty() ? "--:--:--:--:--:--" : h.macAddress)
+                                .arg(h.vendor.isEmpty() ? "&lt;UNKNOWN_OUI&gt;" : h.vendor)
+                                .arg(h.responseTimeMs < 5.0 ? "#9ece6a" : (h.responseTimeMs < 50.0 ? "#e0af68" : "#f7768e"))
+                                .arg(h.responseTimeMs, 0, 'f', 1);
+
+        appendLog(hostFormatted, "+");
 
         if (!h.openPorts.isEmpty()) {
-            appendLog(QString("SERVICES: %1 -> %2").arg(h.ip, h.openPortsSummary()), "*");
+            QString portsFormatted = QString("<b style=\"color:#7dcfff;\">%1</b> &rarr; <b style=\"color:#ff9e64;\">%2</b>")
+                                     .arg(h.ip, h.openPortsSummary());
+            appendLog(portsFormatted, "PORTS");
         }
     }
 
@@ -797,21 +838,27 @@ void MainWindow::updateHostDetailsCard(const HostItem &host)
         return;
     }
 
-    QString title = host.hostname.isEmpty() ? QString("[ TARGET: %1 ]").arg(host.ip)
-                                           : QString("[ TARGET: %1 // IDENT: %2 ]").arg(host.ip, host.hostname);
+    QString title = host.hostname.isEmpty()
+        ? QString("<span style=\"color:#7dcfff; font-size:13px; font-weight:bold;\">TARGET: %1</span>").arg(host.ip)
+        : QString("<span style=\"color:#7dcfff; font-size:13px; font-weight:bold;\">TARGET: %1</span>  <span style=\"color:#e0af68; font-size:12px;\">// IDENT: %2</span>").arg(host.ip, host.hostname);
     m_detailTitle->setText(title);
 
     QStringList details;
-    details << QString("STATE: [ %1 ]").arg(host.statusText());
+    QString stateColor = host.isAlive ? "#9ece6a" : "#f7768e";
+    details << QString("STATE: <b style=\"color:%1;\">[ %2 ]</b>").arg(stateColor, host.statusText());
     if (!host.macAddress.isEmpty()) {
-        QString vendorStr = host.vendor.isEmpty() ? "<UNKNOWN_OUI>" : host.vendor;
-        details << QString("MAC: [ %1 ] (%2)").arg(host.macAddress, vendorStr);
+        QString vendorStr = host.vendor.isEmpty() ? "&lt;UNKNOWN_OUI&gt;" : host.vendor;
+        details << QString("MAC: <b style=\"color:#bb9af7;\">%1</b> (<span style=\"color:#73daca;\">%2</span>)").arg(host.macAddress, vendorStr);
+    }
+    if (host.isAlive) {
+        QString pingColor = host.responseTimeMs < 5.0 ? "#9ece6a" : (host.responseTimeMs < 50.0 ? "#e0af68" : "#f7768e");
+        details << QString("LATENCY: <b style=\"color:%1;\">%2 ms</b>").arg(pingColor).arg(host.responseTimeMs, 0, 'f', 1);
     }
     if (!host.openPorts.isEmpty()) {
-        details << QString("SERVICES: [ %1 ]").arg(host.openPortsSummary());
+        details << QString("SERVICES: <b style=\"color:#ff9e64;\">[ %1 ]</b>").arg(host.openPortsSummary());
     }
 
-    m_detailInfo->setText(details.join("  |  "));
+    m_detailInfo->setText(details.join("  &nbsp;|&nbsp;  "));
 
     m_btnHttp->setEnabled(true);
     m_btnHttps->setEnabled(true);
@@ -1114,7 +1161,7 @@ void MainWindow::onThemeChanged(int index)
 
 void MainWindow::onToggleTheme()
 {
-    int next = (static_cast<int>(m_currentTheme) + 1) % 5;
+    int next = (static_cast<int>(m_currentTheme) + 1) % 8;
     m_themeCombo->setCurrentIndex(next);
 }
 
@@ -1123,17 +1170,22 @@ void MainWindow::applyTheme(ThemeMode mode)
     m_currentTheme = mode;
     QString qssPath;
     switch (mode) {
-    case ThemeRetroGreen: qssPath = ":/styles/retro_green.qss"; break;
-    case ThemeRetroAmber: qssPath = ":/styles/retro_amber.qss"; break;
-    case ThemeRetroCyan:  qssPath = ":/styles/retro_cyan.qss"; break;
-    case ThemeDark:       qssPath = ":/styles/dark.qss"; break;
-    case ThemeLight:      qssPath = ":/styles/light.qss"; break;
+    case ThemeBtopTokyo:   qssPath = ":/styles/btop_tokyo.qss"; break;
+    case ThemeBtopDracula: qssPath = ":/styles/btop_dracula.qss"; break;
+    case ThemeBtopGruvbox: qssPath = ":/styles/btop_gruvbox.qss"; break;
+    case ThemeRetroCyan:   qssPath = ":/styles/retro_cyan.qss"; break;
+    case ThemeRetroGreen:  qssPath = ":/styles/retro_green.qss"; break;
+    case ThemeRetroAmber:  qssPath = ":/styles/retro_amber.qss"; break;
+    case ThemeDark:        qssPath = ":/styles/dark.qss"; break;
+    case ThemeLight:       qssPath = ":/styles/light.qss"; break;
     }
 
     QFile file(qssPath);
     if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         qApp->setStyleSheet(file.readAll());
     }
+
+    m_model->setPaletteMode(static_cast<HostTableModel::PaletteMode>(mode));
 }
 
 void MainWindow::onAbout()

@@ -28,6 +28,17 @@ public:
         PingMsRole
     };
 
+    enum PaletteMode {
+        PaletteBtopTokyo = 0,
+        PaletteBtopDracula,
+        PaletteBtopGruvbox,
+        PaletteRetroCyan,
+        PaletteRetroGreen,
+        PaletteRetroAmber,
+        PaletteDark,
+        PaletteLight
+    };
+
     explicit HostTableModel(QObject *parent = nullptr);
 
     int rowCount(const QModelIndex &parent = QModelIndex()) const override;
@@ -43,6 +54,9 @@ public:
     int aliveCount() const;
     int totalCount() const;
 
+    void setPaletteMode(PaletteMode mode);
+    PaletteMode paletteMode() const { return m_paletteMode; }
+
     const QList<HostItem>& hosts() const { return m_hosts; }
 
 signals:
@@ -52,4 +66,5 @@ private:
     QList<HostItem> m_hosts;
     QHash<QString, int> m_ipToIndex;
     int m_aliveCount;
+    PaletteMode m_paletteMode;
 };

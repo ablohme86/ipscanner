@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
     QCommandLineOption autoScanOpt("auto-scan", "Automatically start scanning on launch");
     QCommandLineOption screenshotOpt("screenshot", "Save a window screenshot to file", "file");
     QCommandLineOption exitAfterOpt("exit-after", "Exit after specified seconds", "seconds");
-    QCommandLineOption themeOpt("theme", "Palette theme (green, amber, cyan, dark, light)", "name");
+    QCommandLineOption themeOpt("theme", "Palette theme (tokyo, dracula, gruvbox, cyan, green, amber, dark, light)", "name");
     parser.addOption(autoScanOpt);
     parser.addOption(screenshotOpt);
     parser.addOption(exitAfterOpt);
@@ -42,11 +42,14 @@ int main(int argc, char *argv[])
 
     if (parser.isSet(themeOpt)) {
         QString t = parser.value(themeOpt).toLower();
-        if (t == "amber") window.setPaletteTheme(MainWindow::ThemeRetroAmber);
+        if (t == "dracula") window.setPaletteTheme(MainWindow::ThemeBtopDracula);
+        else if (t == "gruvbox") window.setPaletteTheme(MainWindow::ThemeBtopGruvbox);
         else if (t == "cyan") window.setPaletteTheme(MainWindow::ThemeRetroCyan);
+        else if (t == "green") window.setPaletteTheme(MainWindow::ThemeRetroGreen);
+        else if (t == "amber") window.setPaletteTheme(MainWindow::ThemeRetroAmber);
         else if (t == "dark") window.setPaletteTheme(MainWindow::ThemeDark);
         else if (t == "light") window.setPaletteTheme(MainWindow::ThemeLight);
-        else window.setPaletteTheme(MainWindow::ThemeRetroGreen);
+        else window.setPaletteTheme(MainWindow::ThemeBtopTokyo);
     }
 
     window.show();

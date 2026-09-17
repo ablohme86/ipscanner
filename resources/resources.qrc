@@ -1,6 +1,9 @@
 <!DOCTYPE RCC>
 <RCC version="1.0">
     <qresource prefix="/">
+        <file>styles/btop_tokyo.qss</file>
+        <file>styles/btop_dracula.qss</file>
+        <file>styles/btop_gruvbox.qss</file>
         <file>styles/retro_green.qss</file>
         <file>styles/retro_amber.qss</file>
         <file>styles/retro_cyan.qss</file>
