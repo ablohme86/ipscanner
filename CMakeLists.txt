@@ -36,6 +36,11 @@ set(SOURCES
     src/ui/WolDialog.cpp
     src/ui/MainWindow.h
     src/ui/MainWindow.cpp
+    src/tui/TuiTheme.h
+    src/tui/TerminalScreen.h
+    src/tui/TerminalScreen.cpp
+    src/tui/TuiApp.h
+    src/tui/TuiApp.cpp
     resources/resources.qrc
 )
 

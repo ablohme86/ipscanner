@@ -101,14 +101,23 @@ cmake --build build -j$(nproc)
 ### Running the Application
 
 ```bash
-# Launch GUI
+# Launch from an interactive terminal (automatically launches Terminal UI)
 ./build/ipscanner
 
-# Launch with automatic scan on current subnet
+# Explicitly launch Terminal UI (TUI)
+./build/ipscanner --tui
+
+# Launch with custom palette theme (tokyo, dracula, gruvbox, green, cyan, amber, dark, light)
+./build/ipscanner --tui --theme dracula
+
+# Launch with automatic scan on launch
 ./build/ipscanner --auto-scan
 
-# Capture a screenshot after 5 seconds and exit
-./build/ipscanner --auto-scan --screenshot scan_result.png --exit-after 5
+# Force Graphical User Interface (GUI) from terminal
+./build/ipscanner --gui
+
+# Capture a screenshot from GUI after 5 seconds and exit
+./build/ipscanner --gui --auto-scan --screenshot scan_result.png --exit-after 5
 ```
 
 ### Running the Unit Tests
@@ -120,7 +129,27 @@ cmake --build build --target test_scanner -j$(nproc)
 
 ---
 
-## Keyboard Shortcuts
+## Terminal UI (TUI) Keyboard Shortcuts
+
+- `Space` / `S`: Start / Stop subnet reconnaissance
+- `P`: Pause / Resume active scan
+- `C`: Clear / Flush discovered targets matrix
+- `R` / `I`: Configure network interface, IP range, threads, timeout
+- `/` or `F`: Search / filter nodes in real-time
+- `A`: Toggle alive-only / all nodes filter
+- `D`: Deep Port Reconnaissance on selected node
+- `W`: Wake-on-LAN magic packet transmission
+- `G`: Interactive ICMP Ping probe on selected node
+- `Y`: Copy selected node intel to system clipboard
+- `E`: Export targets matrix to CSV, JSON, or TXT
+- `T` / `Shift+T`: Cycle / Select retro cyber color theme
+- `Up` / `Down`: Navigate host list (also `j`/`k`, `PageUp`/`PageDown`, `Home`/`End`)
+- `?` / `H`: Help modal
+- `Q` / `Ctrl+C`: Quit application cleanly
+
+---
+
+## GUI Keyboard Shortcuts
 
 - `Ctrl+E`: Export scan results to CSV
 - `Ctrl+P`: Open Deep Port Scanner dialog
